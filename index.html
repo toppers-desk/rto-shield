@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RTO Shield — Indian COD Order Risk Filter</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background: #f1f5f9; color: #0f172a; line-height: 1.5; }
+        header { background: #0f172a; color: #ffffff; padding: 24px 16px; text-align: center; }
+        header h1 { font-size: 26px; letter-spacing: 0.5px; }
+        header p { color: #94a3b8; font-size: 14px; margin-top: 4px; }
+        .container { max-width: 780px; margin: 24px auto; padding: 0 16px; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 16px; }
+        .tab-btn { flex: 1; padding: 12px; border: none; border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer; background: #e2e8f0; color: #334155; }
+        .tab-btn.active { background: #2563eb; color: white; }
+        .card { background: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); margin-bottom: 20px; }
+        .sample-bar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+        .btn-small { background: #e2e8f0; border: none; padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; color: #1e293b; }
+        .btn-small:hover { background: #cbd5e1; }
+        label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; color: #334155; }
+        input, textarea { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; margin-bottom: 14px; }
+        .row { display: flex; gap: 12px; }
+        .row > div { flex: 1; }
+        .btn-primary { width: 100%; background: #2563eb; color: white; border: none; padding: 12px; border-radius: 8px; font-size: 15px; font-weight: 700; cursor: pointer; }
+        .btn-primary:hover { background: #1d4ed8; }
+        #resultBox { display: none; border-left: 6px solid #dc2626; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; color: white; margin-bottom: 8px; }
+        .high { background: #dc2626; }
+        .medium { background: #d97706; }
+        .low { background: #16a34a; }
+        ul { padding-left: 20px; margin: 10px 0 16px; }
+        li { margin-bottom: 6px; font-size: 14px; }
+        .wa-box { background: #f0fdf4; border: 1px solid #bbf7d0; padding: 12px; border-radius: 8px; font-size: 13px; color: #166534; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+        .stat-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; text-align: center; }
+        .stat-box h3 { font-size: 22px; color: #0f172a; }
+        .stat-box p { font-size: 12px; color: #64748b; font-weight: 600; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 10px; }
+        th, td { padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: left; }
+        th { background: #f8fafc; font-weight: 700; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>RTO Shield</h1>
+    <p>Stop Fake Indian COD Orders Before You Spend Rs. 200 on Shipping</p>
+</header>
+
+<div class="container">
+    <div class="tabs">
+        <button class="tab-btn active" id="tabSingle" onclick="switchTab('single')">Single Order Check</button>
+        <button class="tab-btn" id="tabBulk" onclick="switchTab('bulk')">Bulk CSV Audit (Store Owners)</button>
+    </div>
+
+    <div id="singleSection" class="card">
+        <div class="sample-bar">
+            <button class="btn-small" onclick="loadFake()">Test Fake COD Order</button>
+            <button class="btn-small" onclick="loadGood()">Test Real COD Order</button>
+        </div>
+
+        <div class="row">
+            <div>
+                <label>Customer Name</label>
+                <input type="text" id="custName" placeholder="e.g. Rahul Sharma">
+            </div>
+            <div>
+                <label>Phone Number (10 digits)</label>
+                <input type="text" id="custPhone" placeholder="e.g. 9876543210">
+            </div>
+        </div>
+
+        <div class="row">
+            <div>
+                <label>6-Digit Indian Pin Code</label>
+                <input type="text" id="pinCode" placeholder="e.g. 110001">
+            </div>
+            <div>
+                <label>COD Order Amount (Rs.)</label>
+                <input type="number" id="orderAmt" placeholder="e.g. 1499">
+            </div>
+        </div>
+
+        <label>Full Delivery Address</label>
+        <textarea id="address" rows="3" placeholder="House/Flat No, Street, Landmark, City..."></textarea>
+
+        <button class="btn-primary" onclick="analyzeSingle()">Scan COD Order Risk</button>
+    </div>
+
+    <div class="card" id="resultBox">
+        <span class="badge" id="riskBadge">HIGH RISK</span>
+        <h2 id="riskTitle">RTO Risk Score: 85/100</h2>
+        <ul id="flagList"></ul>
+        <div class="wa-box" id="waMessage"></div>
+    </div>
+
+    <div id="bulkSection" class="card" style="display:none;">
+        <div class="sample-bar">
+            <button class="btn-small" onclick="downloadSampleCSV()">Download Sample Orders CSV</button>
+        </div>
+        <label>Upload Shopify / WooCommerce Orders CSV (Columns: Name, Phone, Pincode, Amount, Address)</label>
+        <input type="file" id="csvFile" accept=".csv" onchange="processCSV(event)">
+        <p style="font-size:12px; color:#64748b; margin-bottom:14px;">Tip: Click "Download Sample Orders CSV" first and upload it here to test how bulk scanning works.</p>
+
+        <div id="bulkResults" style="display:none;">
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <h3 id="statTotal">0</h3>
+                    <p>Orders Scanned</p>
+                </div>
+                <div class="stat-box">
+                    <h3 id="statHigh" style="color:#dc2626;">0</h3>
+                    <p>High-Risk Flagged</p>
+                </div>
+                <div class="stat-box">
+                    <h3 id="statSaved" style="color:#16a34a;">Rs. 0</h3>
+                    <p>Est. Shipping Saved</p>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Customer</th>
+                        <th>Phone</th>
+                        <th>Risk</th>
+                        <th>Reason</th>
+                    </tr>
+                </thead>
+                <tbody id="bulkTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    function switchTab(tab) {
+        document.getElementById('singleSection').style.display = tab === 'single' ? 'block' : 'none';
+        document.getElementById('resultBox').style.display = 'none';
+        document.getElementById('bulkSection').style.display = tab === 'bulk' ? 'block' : 'none';
+        document.getElementById('tabSingle').className = tab === 'single' ? 'tab-btn active' : 'tab-btn';
+        document.getElementById('tabBulk').className = tab === 'bulk' ? 'tab-btn active' : 'tab-btn';
+    }
+
+    function scoreOrder(rawName, rawPhone, rawPin, rawAmt, rawAddr) {
+        let score = 0;
+        let flags = [];
+        const cleanPhone = String(rawPhone || "").replace(/[^0-9]/g, '').slice(-10);
+        const cleanPin = String(rawPin || "").trim();
+        const cleanAddr = String(rawAddr || "").trim();
+        const cleanName = String(rawName || "").trim();
+        const amount = Number(rawAmt) || 0;
+
+        if (!/^[6-9][0-9]{9}$/.test(cleanPhone) || /^([0-9])\1{9}$/.test(cleanPhone)) {
+            score += 35;
+            flags.push("Invalid/dummy mobile number");
+        }
+        if (!/^[1-9][0-9]{5}$/.test(cleanPin)) {
+            score += 30;
+            flags.push("Invalid 6-digit pin code");
+        }
+        if (cleanAddr.length < 18 || !/[0-9]/.test(cleanAddr)) {
+            score += 30;
+            flags.push("Incomplete address (no house/flat no.)");
+        }
+        if (/^(test|asdf|qwerty|abc|xyz)/i.test(cleanName) || /^(test|asdf|qwerty)/i.test(cleanAddr)) {
+            score += 30;
+            flags.push("Gibberish/test words detected");
+        }
+        if (amount >= 1500) {
+            score += 15;
+            flags.push("High-value COD (Rs. " + amount + ")");
+        }
+        return { score: Math.min(score, 100), flags: flags };
+    }
+
+    function loadFake() {
+        document.getElementById('custName').value = "test user";
+        document.getElementById('custPhone').value = "9999999999";
+        document.getElementById('pinCode').value = "012345";
+        document.getElementById('orderAmt').value = "2499";
+        document.getElementById('address').value = "near mandir";
+    }
+
+    function loadGood() {
+        document.getElementById('custName').value = "Aarav Verma";
+        document.getElementById('custPhone').value = "9811456723";
+        document.getElementById('pinCode').value = "110048";
+        document.getElementById('orderAmt').value = "799";
+        document.getElementById('address').value = "House No. 42, 2nd Floor, Block B, Greater Kailash 1, New Delhi";
+    }
+
+    function analyzeSingle() {
+        const name = document.getElementById('custName').value;
+        const phone = document.getElementById('custPhone').value;
+        const pin = document.getElementById('pinCode').value;
+        const amt = document.getElementById('orderAmt').value;
+        const addr = document.getElementById('address').value;
+
+        const res = scoreOrder(name, phone, pin, amt, addr);
+        const resultBox = document.getElementById('resultBox');
+        const badge = document.getElementById('riskBadge');
+        const title = document.getElementById('riskTitle');
+        const list = document.getElementById('flagList');
+        const waBox = document.getElementById('waMessage');
+
+        // Clear previous flags
+        list.innerHTML = "";
+
+        // Determine risk level styling
+        if (res.score >= 60) {
+            badge.className = "badge high";
+            badge.innerText = "HIGH RISK";
+            resultBox.style.borderLeftColor = "#dc2626";
+        } else if (res.score >= 30) {
+            badge.className = "badge medium";
+            badge.innerText = "MEDIUM RISK";
+            resultBox.style.borderLeftColor = "#d97706";
+        } else {
+            badge.className = "badge low";
+            badge.innerText = "LOW RISK";
+            resultBox.style.borderLeftColor = "#16a34a";
+        }
+
+        title.innerText = `RTO Risk Score: ${res.score}/100`;
+
+        // Populate flags
+        if (res.flags.length === 0) {
+            let li = document.createElement('li');
+            li.innerText = "No major risk flags detected. Good to ship!";
+            list.appendChild(li);
+        } else {
+            res.flags.forEach(flag => {
+                let li = document.createElement('li');
+                li.innerText = flag;
+                list.appendChild(li);
+            });
+        }
+
+        // WhatsApp message suggestion
+        waBox.innerText = res.score >= 60 
+            ? "💡 Recommendation: Do not dispatch via COD directly. Send a WhatsApp confirmation prompt or ask for a small online advance."
+            : "💡 Recommendation: Order looks safe for standard COD fulfillment.";
+
+        resultBox.style.display = "block";
+    }
+
+    function downloadSampleCSV() {
+        const csvContent = "data:text/csv;charset=utf-8,Name,Phone,Pincode,Amount,Address\n" +
+            "test user,9999999999,012345,2499,near mandir\n" +
+            "Aarav Verma,9811456723,110048,799,House No. 42, 2nd Floor, Block B, Greater Kailash 1, New Delhi\n" +
+            "Rahul Sharma,9876543210,400001,1299,Flat 104, Sunrise Apartments, Mumbai";
+        
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "sample_orders.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function processCSV(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const text = e.target.result;
+            const lines = text.split("\n");
+            let total = 0;
+            let highRiskCount = 0;
+            let tbody = document.getElementById('bulkTableBody');
+            tbody.innerHTML = "";
+
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                
+                // Simple CSV row parser considering quotes or commas
+                const cols = line.split(',');
+                if (cols.length < 5) continue;
+
+                const name = cols[0];
+                const phone = cols[1];
+                const pin = cols[2];
+                const amt = cols[3];
+                const addr = cols.slice(4).join(','); // Join back address if split by comma
+
+                const res = scoreOrder(name, phone, pin, amt, addr);
+                total++;
+
+                let badgeClass = "low";
+                let badgeText = "Low";
+                if (res.score >= 60) {
+                    badgeClass = "high";
+                    badgeText = "High";
+                    highRiskCount++;
+                } else if (res.score >= 30) {
+                    badgeClass = "medium";
+                    badgeText = "Med";
+                }
+
+                let tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${name}</td>
+                    <td>${phone}</td>
+                    <td><span class="badge ${badgeClass}" style="margin-bottom:0;">${badgeText} (${res.score})</span></td>
+                    <td>${res.flags.join(', ') || 'Clean order'}</td>
+                `;
+                tbody.appendChild(tr);
+            }
+
+            document.getElementById('statTotal').innerText = total;
+            document.getElementById('statHigh').innerText = highRiskCount;
+            document.getElementById('statSaved').innerText = "Rs. " + (highRiskCount * 200);
+            document.getElementById('bulkResults').style.display = 'block';
+        };
+        reader.readAsText(file);
+    }
+</script>
+
+</body>
+</html>
